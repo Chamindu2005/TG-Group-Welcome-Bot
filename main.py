@@ -419,8 +419,12 @@ def main():
 if __name__ == "__main__":
     main()
 
-while True:
-    try:
-        bot.polling()
-    except Exception:
-        time.sleep(15)
+TOKEN = "1915061656:AAFwlT8cqV7zNFQ3VI3JmSbkrtuadMToWwg"
+PORT = int(os.environ.get('PORT', '8443'))
+updater = Updater(TOKEN)
+# add handlers
+updater.start_webhook(listen="0.0.0.0",
+                      port=PORT,
+                      url_path=TOKEN,
+                      webhook_url="https://tg-greetings-bot.herokuapp.com/" + TOKEN)
+updater.idle()
