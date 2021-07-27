@@ -14,7 +14,7 @@ from telegram.ext.dispatcher import run_async
 
 from config import BOTNAME, TOKEN
 
-bot_token = 'BotAPI'
+bot_token = '1915061656:AAFwlT8cqV7zNFQ3VI3JmSbkrtuadMToWwg'
 bot=telebot.TeleBot(token=bot_token)
 
 @bot.message_handler(commands=['start'])
