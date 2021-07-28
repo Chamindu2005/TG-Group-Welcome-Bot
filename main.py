@@ -1,5 +1,5 @@
 import telebot
-import time
+import threading
 import logging
 from time import sleep
 import traceback
@@ -14,6 +14,11 @@ from telegram.ext.dispatcher import run_async
 
 from config import BOTNAME, TOKEN
 
+BOT_TOKEN = "BotAPI"
+BOT_INTERVAL = 3
+BOT_TIMEOUT = 30
+
+
 bot_token = 'BotAPI'
 bot=telebot.TeleBot(token=bot_token)
 
@@ -21,15 +26,17 @@ bot=telebot.TeleBot(token=bot_token)
 def send_welcome(message):
     bot.reply_to(message, "Hello! I'm Chamindu's Group Helper Bot. How can I help you? \n Please enter command /help to get the Help content.")
 
-@bot.message_handler(commands=['ping'])
-def start_message(message):
-    bot.reply_to(message, "PONG!, I'm Alive.")
+    
+start_text = (
+    "Hello! I'm Chamindu's Group Helper Bot. How can I help you? \n Please enter command /help to get the Help content."
+)
 
 help_text = (
     "You Have reached the Help Menu of Chamindu's Group Help Bot."
     "This Bot Welcomes everyone that enters a group chat that this bot is a "
     "part of. By default, only the person who invited the bot into "
     "the group is able to change settings.\nCommands:\n\n"
+    "/start - Powers up the Bot\n\n"
     "/welcome - Set welcome message\n"
     "/goodbye - Set goodbye message\n"
     "/disable\\_goodbye - Disable the goodbye message\n"
@@ -38,11 +45,16 @@ help_text = (
     '/quiet - Disable "Sorry, only the person who..." '
     "& help messages\n"
     '/unquiet - Enable "Sorry, only the person who..." '
-    "& help messages\n\n"
+    "& help messages\n"
+    '/ping - Check if the Bot is Alive\n\n'
     "You can use _$username_ and _$title_ as placeholders when setting"
     " messages. [HTML formatting]"
     "(https://core.telegram.org/bots/api#formatting-options) "
     "is also supported.\n"
+)
+
+ping_text = (
+    "PONG!, I'm Alive."
 )
 
 """
@@ -186,6 +198,23 @@ def introduce(update, context):
     )
     send_async(context, chat_id=chat_id, text=text)
 
+# Print start text
+def start(update, context):
+    """ Prints help text """
+
+    chat_id = update.message.chat.id
+    chat_str = str(chat_id)
+    if (
+        not db.get(chat_str + "_quiet")
+        or db.get(chat_str + "_adm") == update.message.from_user.id
+    ):
+        send_async(
+            context,
+            chat_id=chat_id,
+            text=start_text,
+            parse_mode=ParseMode.MARKDOWN,
+            disable_web_page_preview=True,
+        )
 
 # Print help text
 def help(update, context):
@@ -205,6 +234,23 @@ def help(update, context):
             disable_web_page_preview=True,
         )
 
+# Print ping text
+def ping(update, context):
+    """ Prints help text """
+
+    chat_id = update.message.chat.id
+    chat_str = str(chat_id)
+    if (
+        not db.get(chat_str + "_quiet")
+        or db.get(chat_str + "_adm") == update.message.from_user.id
+    ):
+        send_async(
+            context,
+            chat_id=chat_id,
+            text=ping_text,
+            parse_mode=ParseMode.MARKDOWN,
+            disable_web_page_preview=True,
+        )
 
 # Set custom message
 def set_welcome(update, context):
@@ -398,7 +444,7 @@ def main():
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
 
-    dp.add_handler(CommandHandler("start", help))
+    dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("welcome", set_welcome))
     dp.add_handler(CommandHandler("goodbye", set_goodbye))
@@ -407,6 +453,7 @@ def main():
     dp.add_handler(CommandHandler("unlock", unlock))
     dp.add_handler(CommandHandler("quiet", quiet))
     dp.add_handler(CommandHandler("unquiet", unquiet))
+    dp.add_handler(CommandHandler("ping", ping))
 
     dp.add_handler(MessageHandler(Filters.status_update, empty_message))
 
@@ -419,8 +466,44 @@ def main():
 if __name__ == "__main__":
     main()
 
-while True:
-    try:
-        bot.polling()
-    except:
-        time.sleep(5)
+#bot = None #Keep the bot object as global variable if needed
+
+def bot_polling():
+    #global bot #Keep the bot object as global variable if needed
+    print("Starting bot polling now")
+    while True:
+        try:
+            print("New bot instance started")
+            bot = telebot.TeleBot(BOT_TOKEN) #Generate new bot instance
+            botactions(bot) #If bot is used as a global variable, remove bot as an input param
+            bot.polling(none_stop=True, interval=BOT_INTERVAL, timeout=BOT_TIMEOUT)
+        except Exception as ex: #Error in polling
+            print("Bot polling failed, restarting in {}sec. Error:\n{}".format(BOT_TIMEOUT, ex))
+            bot.stop_polling()
+            sleep(BOT_TIMEOUT)
+        else: #Clean exit
+            bot.stop_polling()
+            print("Bot polling loop finished")
+            break #End loop
+
+
+def botactions(bot):
+    #Set all your bot handlers inside this function
+    #If bot is used as a global variable, remove bot as an input param
+    @bot.message_handler(commands=["start"])
+    def command_start(message):
+        bot.reply_to(message, "Hi there!")
+
+
+polling_thread = threading.Thread(target=bot_polling)
+polling_thread.daemon = True
+polling_thread.start()
+
+
+#Keep main program running while bot runs threaded
+if __name__ == "__main__":
+    while True:
+        try:
+            sleep(120)
+        except KeyboardInterrupt:
+            break
